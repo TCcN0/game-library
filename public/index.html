@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>游戏库 - Cloudflare Pages + KV</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>游戏库管理</h1>
+            <button id="loginBtn" class="btn">登录</button>
+        </header>
+        
+        <main>
+            <div class="tabs">
+                <button class="tab-btn active" data-tab="view">浏览游戏</button>
+                <button class="tab-btn" data-tab="add">添加游戏</button>
+            </div>
+            
+            <div class="tab-content">
+                <div id="viewTab" class="tab-pane active">
+                    <h2>游戏列表</h2>
+                    <div class="search-box">
+                        <input type="text" id="searchInput" placeholder="搜索游戏...">
+                        <button id="searchBtn" class="btn">搜索</button>
+                    </div>
+                    <div id="gameList" class="game-grid"></div>
+                </div>
+                
+                <div id="addTab" class="tab-pane">
+                    <h2>添加新游戏</h2>
+                    <form id="addGameForm">
+                        <div class="form-group">
+                            <label for="gameTitle">游戏名称</label>
+                            <input type="text" id="gameTitle" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="gameDesc">游戏描述</label>
+                            <textarea id="gameDesc" rows="3"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="gameContent">HTML 内容</label>
+                            <textarea id="gameContent" rows="10" required></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-success">添加游戏</button>
+                    </form>
+                </div>
+            </div>
+        </main>
+        
+        <div id="notification" class="notification"></div>
+        
+        <footer>
+            <p>Powered by Cloudflare Pages & KV</p>
+        </footer>
+    </div>
+    
+    <script src="/script.js"></script>
+</body>
+</html>

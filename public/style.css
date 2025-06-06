@@ -1,0 +1,276 @@
+:root {
+    --primary: #3498db;
+    --primary-dark: #2980b9;
+    --secondary: #2ecc71;
+    --secondary-dark: #27ae60;
+    --danger: #e74c3c;
+    --danger-dark: #c0392b;
+    --dark: #2c3e50;
+    --light: #ecf0f1;
+    --gray: #95a5a6;
+    --light-gray: #d5dbdb;
+    --border-radius: 4px;
+    --box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+    background-color: #f5f7fa;
+    color: #333;
+    line-height: 1.6;
+    padding: 20px;
+    min-height: 100vh;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    background: white;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 90vh;
+}
+
+header {
+    background: var(--dark);
+    color: white;
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+header h1 {
+    font-size: 1.5rem;
+}
+
+.btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-weight: 600;
+    background: var(--primary);
+    color: white;
+    transition: background 0.3s;
+}
+
+.btn:hover {
+    background: var(--primary-dark);
+}
+
+.btn-success {
+    background: var(--secondary);
+}
+
+.btn-success:hover {
+    background: var(--secondary-dark);
+}
+
+.btn-danger {
+    background: var(--danger);
+}
+
+.btn-danger:hover {
+    background: var(--danger-dark);
+}
+
+.tabs {
+    display: flex;
+    background: #f1f1f1;
+}
+
+.tab-btn {
+    padding: 15px 20px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+    color: #666;
+    position: relative;
+    transition: color 0.3s;
+}
+
+.tab-btn:after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: transparent;
+    transition: background 0.3s;
+}
+
+.tab-btn.active {
+    color: var(--primary);
+}
+
+.tab-btn.active:after {
+    background: var(--primary);
+}
+
+.tab-content {
+    padding: 20px;
+    flex: 1;
+}
+
+.tab-pane {
+    display: none;
+}
+
+.tab-pane.active {
+    display: block;
+}
+
+.search-box {
+    display: flex;
+    margin: 20px 0;
+    gap: 10px;
+}
+
+.search-box input {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: var(--border-radius);
+}
+
+#gameList {
+    margin-top: 20px;
+}
+
+.game-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+}
+
+.game-card {
+    border: 1px solid #eee;
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    box-shadow: var(--box-shadow);
+    transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.game-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+.game-header {
+    background: var(--dark);
+    color: white;
+    padding: 15px;
+}
+
+.game-header h3 {
+    font-size: 1.2rem;
+    margin-bottom: 5px;
+}
+
+.game-content {
+    padding: 15px;
+    background: #f9f9f9;
+    border-bottom: 1px solid #eee;
+}
+
+.game-preview {
+    max-height: 100px;
+    overflow: hidden;
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+.game-actions {
+    padding: 10px 15px;
+    display: flex;
+    gap: 10px;
+    background: #fff;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 600;
+}
+
+.form-group input,
+.form-group textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: var(--border-radius);
+}
+
+.form-group textarea {
+    resize: vertical;
+}
+
+.notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 15px 20px;
+    border-radius: var(--border-radius);
+    color: white;
+    opacity: 0;
+    transform: translateX(100px);
+    transition: all 0.3s;
+    z-index: 1000;
+}
+
+.notification.show {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.notification.success {
+    background: var(--secondary);
+}
+
+.notification.error {
+    background: var(--danger);
+}
+
+footer {
+    text-align: center;
+    padding: 20px;
+    background: #f9f9f9;
+    color: var(--gray);
+    margin-top: auto;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .game-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .search-box {
+        flex-direction: column;
+    }
+    
+    .tabs {
+        flex-direction: column;
+    }
+    
+    .tab-btn {
+        width: 100%;
+        text-align: center;
+    }
+}
