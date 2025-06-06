@@ -3,60 +3,226 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>游戏库 - Cloudflare Pages + KV</title>
+    <title>霓虹游戏库 | Cloudflare KV + Pages</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* 基础样式嵌入，最终需移到style.css */
+        body {
+            margin: 0;
+            padding: 0;
+            background: #0c0f1d;
+            color: #e0e7ff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow-x: hidden;
+        }
+    </style>
     <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>游戏库管理</h1>
-            <button id="loginBtn" class="btn">登录</button>
-        </header>
-        
-        <main>
-            <div class="tabs">
-                <button class="tab-btn active" data-tab="view">浏览游戏</button>
-                <button class="tab-btn" data-tab="add">添加游戏</button>
+    <!-- 粒子背景画布 -->
+    <canvas id="particles"></canvas>
+    
+    <!-- 玻璃态侧边导航 -->
+    <nav class="glass-nav">
+        <div class="logo">
+            <i class="fas fa-gamepad"></i>
+            <span>NeoGame</span>
+        </div>
+        <div class="nav-items">
+            <a href="#" class="active" data-tab="library"><i class="fas fa-book"></i> 游戏库</a>
+            <a href="#" data-tab="add"><i class="fas fa-plus-circle"></i> 添加游戏</a>
+            <a href="#" data-tab="stats"><i class="fas fa-chart-pie"></i> 统计</a>
+        </div>
+        <div class="user-info">
+            <div class="auth-buttons">
+                <button id="loginBtn" class="glow-btn"><i class="fas fa-sign-in-alt"></i> 登录</button>
+                <button id="logoutBtn" class="glow-btn hidden"><i class="fas fa-sign-out-alt"></i> 登出</button>
+            </div>
+            <div class="avatar" id="userAvatar"></div>
+        </div>
+    </nav>
+
+    <!-- 主内容区域 -->
+    <main>
+        <!-- 游戏库 -->
+        <section id="librarySection" class="tab-content active">
+            <div class="section-header">
+                <h1><i class="fas fa-star-glow"></i> 游戏库</h1>
+                <div class="search-box">
+                    <div class="search-container">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="searchInput" placeholder="搜索游戏...">
+                    </div>
+                    <button id="searchBtn" class="glow-btn">搜索</button>
+                </div>
             </div>
             
-            <div class="tab-content">
-                <div id="viewTab" class="tab-pane active">
-                    <h2>游戏列表</h2>
-                    <div class="search-box">
-                        <input type="text" id="searchInput" placeholder="搜索游戏...">
-                        <button id="searchBtn" class="btn">搜索</button>
-                    </div>
-                    <div id="gameList" class="game-grid"></div>
-                </div>
-                
-                <div id="addTab" class="tab-pane">
-                    <h2>添加新游戏</h2>
-                    <form id="addGameForm">
-                        <div class="form-group">
-                            <label for="gameTitle">游戏名称</label>
-                            <input type="text" id="gameTitle" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="gameDesc">游戏描述</label>
-                            <textarea id="gameDesc" rows="3"></textarea>
-                        </div>
-                        <div class="form-group">
-                            <label for="gameContent">HTML 内容</label>
-                            <textarea id="gameContent" rows="10" required></textarea>
-                        </div>
-                        <button type="submit" class="btn btn-success">添加游戏</button>
-                    </form>
+            <!-- 游戏筛选标签 -->
+            <div class="filter-tags">
+                <span class="tag active">全部</span>
+                <span class="tag">动作</span>
+                <span class="tag">冒险</span>
+                <span class="tag">解谜</span>
+                <span class="tag">策略</span>
+                <span class="tag">休闲</span>
+            </div>
+            
+            <!-- 游戏网格 -->
+            <div class="game-grid" id="gameGrid">
+                <!-- 游戏卡片会动态生成 -->
+                <div class="card-loader">
+                    <div class="loader-circle"></div>
+                    <p>从Cloudflare KV加载游戏中...</p>
                 </div>
             </div>
-        </main>
-        
-        <div id="notification" class="notification"></div>
-        
-        <footer>
-            <p>Powered by Cloudflare Pages & KV</p>
-        </footer>
+        </section>
+
+        <!-- 添加游戏 -->
+        <section id="addSection" class="tab-content">
+            <div class="section-header">
+                <h1><i class="fas fa-plus-circle"></i> 添加新游戏</h1>
+                <p>将您的HTML游戏上传到Cloudflare KV</p>
+            </div>
+            
+            <div class="form-container">
+                <div class="form-group">
+                    <label for="gameTitle"><i class="fas fa-heading"></i> 游戏标题</label>
+                    <input type="text" id="gameTitle" placeholder="输入游戏名称" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="gameCategory"><i class="fas fa-tag"></i> 游戏类别</label>
+                    <select id="gameCategory">
+                        <option value="action">动作</option>
+                        <option value="adventure">冒险</option>
+                        <option value="puzzle">解谜</option>
+                        <option value="strategy">策略</option>
+                        <option value="casual">休闲</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="gameDesc"><i class="fas fa-align-left"></i> 游戏描述</label>
+                    <textarea id="gameDesc" rows="3" placeholder="简短描述游戏内容"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="gameHtml"><i class="fas fa-code"></i> HTML代码</label>
+                    <div class="file-upload" id="fileUploadArea">
+                        <i class="fas fa-file-upload"></i>
+                        <p>拖放HTML文件到此处，或<span id="browseLink">浏览文件</span></p>
+                        <input type="file" id="htmlFile" accept=".html" hidden>
+                    </div>
+                    <textarea id="gameHtml" rows="12" placeholder="或在此处粘贴HTML代码"></textarea>
+                </div>
+                
+                <div class="image-preview" id="imagePreview">
+                    <div class="preview-note">
+                        <i class="fas fa-image"></i>
+                        <p>游戏缩略图预览</p>
+                    </div>
+                </div>
+                
+                <button id="uploadGameBtn" class="glow-btn large-btn">
+                    <i class="fas fa-cloud-upload-alt"></i> 上传游戏到Cloudflare KV
+                </button>
+            </div>
+        </section>
+
+        <!-- 统计面板 -->
+        <section id="statsSection" class="tab-content">
+            <div class="section-header">
+                <h1><i class="fas fa-chart-network"></i> 游戏库统计</h1>
+                <p>Cloudflare KV存储分析</p>
+            </div>
+            
+            <div class="stats-overview">
+                <div class="stat-card glow-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-gamepad"></i>
+                    </div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="totalGames">0</div>
+                        <div class="stat-label">游戏总数</div>
+                    </div>
+                </div>
+                
+                <div class="stat-card glow-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-hard-drive"></i>
+                    </div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="storageSize">0 MB</div>
+                        <div class="stat-label">存储使用</div>
+                    </div>
+                </div>
+                
+                <div class="stat-card glow-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-fire"></i>
+                    </div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="popularity">0</div>
+                        <div class="stat-label">总游玩次数</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="stats-charts">
+                <div class="chart-container pie-chart">
+                    <h3><i class="fas fa-chart-pie"></i> 游戏类别分布</h3>
+                    <canvas id="categoryChart"></canvas>
+                </div>
+                <div class="chart-container bar-chart">
+                    <h3><i class="fas fa-chart-bar"></i> 每月新增游戏</h3>
+                    <canvas id="monthlyChart"></canvas>
+                </div>
+            </div>
+        </section>
+    </main>
+    
+    <!-- 霓虹通知组件 -->
+    <div id="notification" class="neon-notification">
+        <i class="fas fa-check-circle"></i>
+        <span class="message">操作成功！</span>
     </div>
     
+    <!-- 霓虹登录面板 -->
+    <div id="loginModal" class="neon-modal">
+        <div class="modal-content">
+            <h2><i class="fas fa-user-astronaut"></i> 登录</h2>
+            <form id="loginForm">
+                <div class="input-group">
+                    <i class="fas fa-user"></i>
+                    <input type="text" id="username" placeholder="用户名" required>
+                </div>
+                <div class="input-group">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="password" placeholder="密码" required>
+                </div>
+                <button type="submit" class="glow-btn large-btn">登录</button>
+            </form>
+        </div>
+    </div>
+    
+    <!-- 游戏预览窗口 -->
+    <div id="gamePreview" class="game-preview">
+        <div class="preview-header">
+            <h2 id="previewTitle"></h2>
+            <button id="closePreview" class="btn-icon"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="preview-content">
+            <iframe id="gameFrame"></iframe>
+        </div>
+        <div class="preview-footer">
+            <button id="fullscreenBtn" class="btn-icon"><i class="fas fa-expand"></i></button>
+            <div class="controls">
+                <button class="btn-icon"><i class="fas fa-volume-up"></i></button>
+                <button class="btn-icon"><i class="fas fa-info-circle"></i></button>
+            </div>
+        </div>
+    </div>
+
     <script src="/script.js"></script>
 </body>
 </html>
