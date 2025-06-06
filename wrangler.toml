@@ -1,0 +1,21 @@
+name = "tiancai-game-library"
+type = "pages"
+account_id = "<YOUR_CLOUDFLARE_ACCOUNT_ID>"
+workers_dev = false
+route = ""
+usage_model = ""
+compatibility_flags = []
+compatibility_date = "2024-02-01"
+
+[build]
+command = ""
+publish = "public"
+
+[build.upload]
+format = "directory"
+dir = "public"
+
+[[kv_namespaces]]
+binding = "GAMES"
+id = "<YOUR_KV_NAMESPACE_ID>"
+preview_id = "<YOUR_PREVIEW_KV_ID>"
