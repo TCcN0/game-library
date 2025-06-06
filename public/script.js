@@ -1,266 +1,409 @@
-// 前端交互逻辑
+// 配置信息
 const API_BASE = '/api/games';
+const USERNAME = "天小材";
+const PASSWORD = "114514";
 
-// DOM 元素
-const gameListEl = document.getElementById('gameList');
-const searchBtn = document.getElementById('searchBtn');
+// DOM元素
+const gameGrid = document.getElementById('gameGrid');
 const searchInput = document.getElementById('searchInput');
+const searchBtn = document.getElementById('searchBtn');
+const gameTitle = document.getElementById('gameTitle');
+const gameDesc = document.getElementById('gameDesc');
+const gameHtml = document.getElementById('gameHtml');
+const uploadGameBtn = document.getElementById('uploadGameBtn');
 const loginBtn = document.getElementById('loginBtn');
-const addGameForm = document.getElementById('addGameForm');
+const logoutBtn = document.getElementById('logoutBtn');
+const loginModal = document.getElementById('loginModal');
+const loginForm = document.getElementById('loginForm');
 const notification = document.getElementById('notification');
-const tabBtns = document.querySelectorAll('.tab-btn');
+const tabs = document.querySelectorAll('[data-tab]');
+const tabSections = document.querySelectorAll('.tab-content');
+const fileUploadArea = document.getElementById('fileUploadArea');
+const htmlFile = document.getElementById('htmlFile');
+const gamePreview = document.getElementById('gamePreview');
+const gameFrame = document.getElementById('gameFrame');
+const previewTitle = document.getElementById('previewTitle');
+const closePreview = document.getElementById('closePreview');
 
-// 认证状态
+// 状态变量
 let isAuthenticated = false;
-let authErrorCount = 0;
+let authToken = null;
+let gameData = [];
+let currentFilter = 'all';
 
-// 初始化页面
-document.addEventListener('DOMContentLoaded', () => {
-    // 设置标签页
-    setupTabs();
+// 粒子背景初始化
+const initParticles = () => {
+    const canvas = document.getElementById('particles');
+    const ctx = canvas.getContext('2d');
     
-    // 加载游戏列表
-    loadGames();
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
     
-    // 登录按钮事件
-    loginBtn.addEventListener('click', handleLogin);
+    const particles = [];
+    const particleCount = 100;
     
-    // 设置搜索功能
-    searchBtn.addEventListener('click', () => {
-        const searchText = searchInput.value.trim().toLowerCase();
-        loadGames(searchText);
+    // 创建粒子
+    for (let i = 0; i < particleCount; i++) {
+        particles.push({
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height,
+            radius: Math.random() * 3 + 1,
+            color: `rgba(${Math.random() > 0.5 ? 123 : 100}, ${Math.random() > 0.5 ? 104 : 223}, ${Math.random() > 0.5 ? 238 : 204}, ${Math.random() * 0.3 + 0.2})`,
+            speedX: (Math.random() - 0.5) * 0.5,
+            speedY: (Math.random() - 0.5) * 0.5,
+            angle: 0
+        });
+    }
+    
+    // 动画循环
+    const animate = () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // 更新和绘制粒子
+        particles.forEach(p => {
+            p.x += p.speedX;
+            p.y += p.speedY;
+            
+            // 边界检查
+            if (p.x < 0 || p.x > canvas.width) p.speedX *= -1;
+            if (p.y < 0 || p.y > canvas.height) p.speedY *= -1;
+            
+            // 绘制粒子
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+            ctx.fillStyle = p.color;
+            ctx.fill();
+        });
+        
+        // 绘制连接线
+        for (let i = 0; i < particles.length; i++) {
+            for (let j = i + 1; j < particles.length; j++) {
+                const distance = Math.sqrt(
+                    Math.pow(particles[i].x - particles[j].x, 2) + 
+                    Math.pow(particles[i].y - particles[j].y, 2)
+                );
+                
+                if (distance < 150) {
+                    const opacity = 1 - distance / 150;
+                    ctx.beginPath();
+                    ctx.moveTo(particles[i].x, particles[i].y);
+                    ctx.lineTo(particles[j].x, particles[j].y);
+                    ctx.strokeStyle = `rgba(200, 216, 255, ${opacity * 0.1})`;
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                }
+            }
+        }
+        
+        requestAnimationFrame(animate);
+    };
+    
+    // 开始动画
+    animate();
+    
+    // 响应式调整
+    window.addEventListener('resize', () => {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
     });
+};
+
+// 初始化
+document.addEventListener('DOMContentLoaded', async () => {
+    initParticles();
+    setupEventListeners();
+    await loadGames();
     
-    // 表单提交事件
-    addGameForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        await handleSubmitGame();
-    });
+    // 设置用户头像
+    document.getElementById('userAvatar').textContent = USERNAME.charAt(0).toUpperCase();
 });
 
-function setupTabs() {
-    tabBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            // 移除所有活动状态
-            tabBtns.forEach(b => b.classList.remove('active'));
-            document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+// 设置事件监听器
+function setupEventListeners() {
+    // 标签页切换
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const targetTab = tab.dataset.tab;
             
-            // 设置当前活动标签
-            btn.classList.add('active');
-            const tabId = btn.dataset.tab;
-            document.getElementById(`${tabId}Tab`).classList.add('active');
+            // 检查上传权限
+            if (targetTab === 'add' && !isAuthenticated) {
+                showNotification('请先登录以上传游戏', 'error');
+                openLoginModal();
+                return;
+            }
+            
+            // 更新标签状态
+            tabs.forEach(t => t.closest('a').classList.remove('active'));
+            tab.classList.add('active');
+            
+            // 显示对应面板
+            tabSections.forEach(section => {
+                section.classList.remove('active');
+                if (section.id === `${targetTab}Section`) {
+                    section.classList.add('active');
+                }
+            });
+        });
+    });
+    
+    // 搜索功能
+    searchBtn.addEventListener('click', searchGames);
+    searchInput.addEventListener('keyup', e => {
+        if (e.key === 'Enter') searchGames();
+    });
+    
+    // 文件上传功能
+    fileUploadArea.addEventListener('click', () => htmlFile.click());
+    htmlFile.addEventListener('change', handleFileUpload);
+    
+    // 上传游戏
+    uploadGameBtn.addEventListener('click', uploadGame);
+    
+    // 登录功能
+    loginBtn.addEventListener('click', openLoginModal);
+    logoutBtn.addEventListener('click', logout);
+    loginForm.addEventListener('submit', handleLogin);
+    
+    // 游戏预览关闭
+    closePreview.addEventListener('click', closeGamePreview);
+    
+    // 游戏类别筛选
+    document.querySelectorAll('.filter-tags .tag').forEach(tag => {
+        tag.addEventListener('click', () => {
+            currentFilter = tag.textContent.toLowerCase();
+            document.querySelectorAll('.filter-tags .tag').forEach(t => t.classList.remove('active'));
+            tag.classList.add('active');
+            renderGameList();
         });
     });
 }
 
-async function loadGames(search = '') {
+// 加载游戏
+async function loadGames() {
     try {
-        // 显示加载状态
-        gameListEl.innerHTML = '<div class="loading">加载游戏中...</div>';
+        gameGrid.innerHTML = `
+            <div class="card-loader">
+                <div class="loader-circle"></div>
+                <p>从Cloudflare KV加载游戏中...</p>
+            </div>
+        `;
         
-        const url = search ? `${API_BASE}?search=${encodeURIComponent(search)}` : API_BASE;
-        const response = await fetch(url);
-        
+        const response = await fetch(API_BASE);
         if (!response.ok) {
             throw new Error(`API请求失败: ${response.status}`);
         }
         
-        const games = await response.json();
-        renderGameList(games);
+        gameData = await response.json();
+        gameData.forEach(game => {
+            game.playCount = game.playCount || 0;
+            game.favoriteCount = game.favoriteCount || 0;
+        });
         
+        // 更新UI
+        renderGameList();
+        updateStats();
     } catch (error) {
+        console.error('加载游戏失败:', error);
         showNotification(`加载失败: ${error.message}`, 'error');
-        gameListEl.innerHTML = `<div class="error">错误: ${error.message}</div>`;
+        gameGrid.innerHTML = `
+            <div class="error">
+                <i class="fas fa-exclamation-triangle"></i>
+                <h3>无法加载游戏数据</h3>
+                <p>${error.message}</p>
+                <button class="glow-btn" id="retryBtn">重新加载</button>
+            </div>
+        `;
+        document.getElementById('retryBtn').addEventListener('click', loadGames);
     }
 }
 
-function renderGameList(games) {
-    if (!games || games.length === 0) {
-        gameListEl.innerHTML = '<div class="empty">没有找到游戏</div>';
+// 渲染游戏列表
+function renderGameList() {
+    // 应用搜索过滤
+    let filteredGames = [...gameData];
+    const searchTerm = searchInput.value.trim().toLowerCase();
+    
+    if (searchTerm) {
+        filteredGames = filteredGames.filter(game => {
+            return game.title.toLowerCase().includes(searchTerm) || 
+                   (game.description && game.description.toLowerCase().includes(searchTerm));
+        });
+    }
+    
+    // 应用类别过滤
+    if (currentFilter !== 'all') {
+        filteredGames = filteredGames.filter(game => {
+            return game.category && game.category.toLowerCase() === currentFilter;
+        });
+    }
+    
+    if (!filteredGames || filteredGames.length === 0) {
+        gameGrid.innerHTML = `
+            <div class="no-games">
+                <i class="fas fa-gamepad"></i>
+                <h3>未找到游戏</h3>
+                <p>没有匹配${searchTerm ? `"${searchTerm}"` : currentFilter !== 'all' ? `"${currentFilter}"类别` : ''}的游戏</p>
+                <button class="glow-btn" id="addFirstGameBtn">添加第一个游戏</button>
+            </div>
+        `;
+        document.getElementById('addFirstGameBtn').addEventListener('click', () => {
+            document.querySelector('[data-tab="add"]').click();
+        });
         return;
     }
     
-    const gameListHTML = games.map(game => {
+    // 生成游戏卡片
+    gameGrid.innerHTML = filteredGames.map(game => {
+        const categoryClass = game.category ? game.category.toLowerCase() : 'all';
         return `
-        <div class="game-card" data-id="${game.id}">
-            <div class="game-header">
-                <h3>${game.title}</h3>
-                <p>${truncate(game.description, 40) || '无描述'}</p>
+            <div class="game-card" data-id="${game.id}">
+                <div class="game-thumb">
+                    <div class="game-thumbnail" style="background: ${getRandomGradient()}"></div>
+                </div>
+                <div class="game-info">
+                    <div class="game-title">
+                        ${game.title}
+                        <span class="game-category ${categoryClass}">${game.category || '一般'}</span>
+                    </div>
+                    <p class="game-desc">${game.description || '暂无描述'}</p>
+                    <div class="game-meta">
+                        <div><i class="fas fa-play"></i> ${game.playCount} 游玩</div>
+                        <div><i class="fas fa-heart"></i> ${game.favoriteCount} 收藏</div>
+                        <div><i class="fas fa-calendar"></i> ${formatDate(game.uploadDate)}</div>
+                    </div>
+                    <div class="game-actions">
+                        <button class="glow-btn" onclick="playGame('${game.id}')">
+                            <i class="fas fa-play"></i> 玩游戏
+                        </button>
+                        <button class="btn-icon" onclick="toggleFavorite('${game.id}')">
+                            <i class="fas fa-heart"></i>
+                        </button>
+                    </div>
+                </div>
             </div>
-            <div class="game-content">
-                <div class="game-preview">${truncate(game.content, 120)}</div>
-            </div>
-            <div class="game-actions">
-                <button class="btn" onclick="playGame('${game.id}')">运行</button>
-                ${isAuthenticated ? 
-                  `<button class="btn btn-danger" onclick="deleteGame('${game.id}')">删除</button>` : 
-                  ''
-                }
-            </div>
-        </div>
         `;
     }).join('');
+}
+
+// 玩游戏的函数
+function playGame(gameId) {
+    const game = gameData.find(g => g.id === gameId);
+    if (game) {
+        // 更新播放计数
+        game.playCount = (game.playCount || 0) + 1;
+        
+        // 打开预览窗口
+        previewTitle.textContent = game.title;
+        gameFrame.srcdoc = game.html;
+        
+        // 添加到历史记录（在真实项目中需要保存到存储）
+        addToPlayHistory(game);
+        
+        // 显示预览窗口
+        gamePreview.classList.add('active');
+    }
+}
+
+// 关闭游戏预览
+function closeGamePreview() {
+    gamePreview.classList.remove('active');
+}
+
+// 辅助函数：生成随机渐变
+function getRandomGradient() {
+    const gradients = [
+        'linear-gradient(45deg, #7b68ee, #64dfcc)',
+        'linear-gradient(45deg, #ff4da8, #ff845e)',
+        'linear-gradient(45deg, #64dfcc, #5271ff)',
+        'linear-gradient(45deg, #ff4da8, #7b68ee)',
+        'linear-gradient(45deg, #5271ff, #64dfcc)'
+    ];
+    return gradients[Math.floor(Math.random() * gradients.length)];
+}
+
+// 辅助函数：格式化日期
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    return `${date.getFullYear()}.${(date.getMonth() + 1).toString().padStart(2, '0')}.${date.getDate().toString().padStart(2, '0')}`;
+}
+
+// 更新统计信息
+function updateStats() {
+    document.getElementById('totalGames').textContent = gameData.length;
     
-    gameListEl.innerHTML = gameListHTML;
-}
-
-function handleLogin() {
-    if (!isAuthenticated) {
-        const username = prompt('用户名:');
-        const password = prompt('密码:');
-        
-        // 简单模拟认证
-        if (username === "天小材" && password === "114514") {
-            isAuthenticated = true;
-            loginBtn.textContent = '登出';
-            showNotification('登录成功', 'success');
-            authErrorCount = 0;
-        } else {
-            authErrorCount++;
-            if (authErrorCount >= 3) {
-                showNotification('认证失败次数过多，请重试', 'error');
-            } else {
-                showNotification('用户名或密码错误', 'error');
-            }
-        }
-    } else {
-        isAuthenticated = false;
-        loginBtn.textContent = '登录';
-        showNotification('您已登出', 'success');
-    }
-}
-
-async function handleSubmitGame() {
-    if (!isAuthenticated) {
-        showNotification('请先登录才能添加游戏', 'error');
-        return;
-    }
+    // 计算存储大小
+    const totalBytes = gameData.reduce((sum, game) => 
+        sum + (game.html ? game.html.length : 0), 0);
+    const totalMB = (totalBytes / 1024 / 1024).toFixed(2);
+    document.getElementById('storageSize').textContent = `${totalMB} MB`;
     
-    const title = document.getElementById('gameTitle').value;
-    const description = document.getElementById('gameDesc').value;
-    const content = document.getElementById('gameContent').value;
-    
-    try {
-        const response = await fetch(API_BASE, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Basic ${btoa("天小材:114514")}`
-            },
-            body: JSON.stringify({ title, description, content })
-        });
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(errorText);
-        }
-        
-        showNotification('游戏添加成功', 'success');
-        document.getElementById('addGameForm').reset();
-        loadGames();
-        
-    } catch (error) {
-        console.error('添加游戏失败:', error);
-        showNotification(`添加失败: ${error.message}`, 'error');
-    }
+    // 计算总游玩次数
+    const totalPlayCount = gameData.reduce((sum, game) => 
+        sum + (game.playCount || 0), 0);
+    document.getElementById('popularity').textContent = totalPlayCount;
 }
 
-async function playGame(id) {
-    try {
-        const response = await fetch(`${API_BASE}/${id}`);
-        
-        if (!response.ok) {
-            throw new Error('获取游戏失败');
-        }
-        
-        const game = await response.json();
-        runGame(game.content);
-        
-    } catch (error) {
-        showNotification(`无法运行游戏: ${error.message}`, 'error');
-    }
-}
-
-function runGame(content) {
-    const win = window.open('', '_blank');
-    win.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>游戏运行中</title>
-            <style>
-                body, html {
-                    margin: 0;
-                    padding: 0;
-                    width: 100%;
-                    height: 100%;
-                    overflow: hidden;
-                }
-                #game-container {
-                    position: absolute;
-                    width: 100%;
-                    height: 100%;
-                    background: #000;
-                }
-            </style>
-        </head>
-        <body>
-            <div id="game-container">${content}</div>
-            <div style="position: fixed; bottom: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 5px 10px; border-radius: 5px;">
-                <button onclick="window.close()">关闭游戏</button>
-            </div>
-        </body>
-        </html>
-    `);
-    win.document.close();
-}
-
-async function deleteGame(id) {
-    if (!isAuthenticated) {
-        showNotification('请先登录', 'error');
-        return;
-    }
-    
-    if (!confirm('确定删除这个游戏吗？此操作不可撤销')) {
-        return;
-    }
-    
-    try {
-        const response = await fetch(`${API_BASE}/${id}`, {
-            method: 'DELETE',
-            headers: {
-                'Authorization': `Basic ${btoa("天小材:114514")}`
-            }
-        });
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(errorText);
-        }
-        
-        showNotification('游戏已删除', 'success');
-        loadGames();
-        
-    } catch (error) {
-        console.error('删除游戏失败:', error);
-        showNotification(`删除失败: ${error.message}`, 'error');
-    }
-}
-
+// 显示通知
 function showNotification(message, type = 'success') {
-    notification.textContent = message;
-    notification.className = `notification show ${type}`;
+    notification.querySelector('.message').textContent = message;
+    notification.className = `neon-notification ${type} show`;
     
     setTimeout(() => {
         notification.classList.remove('show');
     }, 3000);
 }
 
-function truncate(text, maxLength) {
-    if (!text) return '';
-    return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+// 打开登录模态框
+function openLoginModal() {
+    loginModal.classList.add('active');
 }
 
-// 全局方法
-window.playGame = playGame;
-window.deleteGame = deleteGame;
+// 关闭登录模态框
+function closeLoginModal() {
+    loginModal.classList.remove('active');
+}
+
+// 登录处理
+function handleLogin(e) {
+    e.preventDefault();
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value.trim();
+    
+    if (username === USERNAME && password === PASSWORD) {
+        isAuthenticated = true;
+        authToken = btoa(`${username}:${password}`);
+        
+        // 更新UI
+        loginBtn.classList.add('hidden');
+        logoutBtn.classList.remove('hidden');
+        showNotification(`欢迎回来，${username}！`, 'success');
+        closeLoginModal();
+    } else {
+        showNotification('用户名或密码错误', 'error');
+    }
+}
+
+// 退出登录
+function logout() {
+    isAuthenticated = false;
+    authToken = null;
+    loginBtn.classList.remove('hidden');
+    logoutBtn.classList.add('hidden');
+    showNotification('您已退出登录', 'success');
+}
+
+// 将游戏添加到播放历史
+function addToPlayHistory(game) {
+    // 在真实项目中，这里应该保存到localStorage或IndexedDB
+    console.log(`[历史记录] 玩过游戏: ${game.title}`);
+}
+
+// 切换收藏状态
+function toggleFavorite(gameId) {
+    const game = gameData.find(g => g.id === gameId);
+    if (game) {
+        game.favoriteCount = (game.favoriteCount || 0) + (game.favoriteCount > 0 ? -1 : 1);
+        showNotification(game.favoriteCount > 0 ? 
+            '已添加到收藏夹' : '已从收藏夹移除', 'success');
+    }
+}
